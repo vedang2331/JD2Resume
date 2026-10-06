@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model CandidateProfile {
+  id              String           @id @default(uuid())
+  fullName        String
+  email           String
+  phone           String?
+  location        String?
+  linkedIn        String?
+  gitHub          String?
+  portfolio       String?
+  summary         String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  educations      Education[]
+  skills          CandidateSkill[]
+  experiences     Experience[]
+  projects        Project[]
+  certifications  Certification[]
+  achievements    Achievement[]
+  courseworks     Coursework[]
+  resumes         ResumeVersion[]
+}
+
+model Education {
+  id                 String           @id @default(uuid())
+  candidateId        String
+  candidate          CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  degree             String
+  institution        String
+  specialization     String?
+  gpa                String?
+  graduationYear     String
+  relevantCoursework String?
+}
+
+model CandidateSkill {
+  id                  String           @id @default(uuid())
+  candidateId         String
+  candidate           CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  skillName           String
+  category            String           // Languages, Frameworks, Databases, Cloud, DevOps, Tools, Frontend, Backend, Data/ML, etc.
+  proficiency         String           // Beginner, Familiar, Intermediate, Advanced, Expert
+  yearsExperience     Float?
+  explicitlyVerified Boolean          @default(true)
+  notes               String?
+}
+
+model Experience {
+  id               String           @id @default(uuid())
+  candidateId      String
+  candidate        CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  company          String
+  position         String
+  startDate        String
+  endDate          String
+  location         String?
+  responsibilities String           // JSON array
+  achievements     String?          // JSON array
+  technologies     String           // JSON array
+  metrics          String?          // JSON array
+}
+
+model Project {
+  id               String           @id @default(uuid())
+  candidateId      String
+  candidate        CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  projectName      String
+  description      String
+  problemSolved    String?
+  technologies     String           // JSON array
+  responsibilities String           // JSON array
+  features         String?          // JSON array
+  architecture     String?
+  achievements     String?
+  metrics          String?
+  githubUrl        String?
+  liveUrl          String?
+}
+
+model Certification {
+  id            String           @id @default(uuid())
+  candidateId   String
+  candidate     CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  name          String
+  issuer        String
+  issueDate     String?
+  credentialUrl String?
+}
+
+model Achievement {
+  id          String           @id @default(uuid())
+  candidateId String
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  metricValue String?
+  date        String?
+}
+
+model Coursework {
+  id          String           @id @default(uuid())
+  candidateId String
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  subject     String
+  topics      String?
+}
+
+model JobDescription {
+  id                 String          @id @default(uuid())
+  roleTitle          String
+  company            String?
+  location           String?
+  rawText            String
+  experienceRequired String?
+  educationRequired  String?
+  mandatorySkills    String          // JSON array
+  preferredSkills    String          // JSON array
+  technologies       String          // JSON array
+  responsibilities   String          // JSON array
+  domainKeywords     String          // JSON array
+  softSkills         String          // JSON array
+  certifications     String          // JSON array
+  keywords           String          // JSON array
+  createdAt          DateTime        @default(now())
+
+  resumes            ResumeVersion[]
+}
+
+model ResumeVersion {
+  id               String           @id @default(uuid())
+  title            String
+  candidateId      String
+  candidate        CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobDescriptionId String
+  jobDescription   JobDescription   @relation(fields: [jobDescriptionId], references: [id], onDelete: Cascade)
+  mode             String           // STRICT_PROFILE, JD_OPTIMIZED, LEARNED_SKILLS
+  objective        String           // BALANCED, MAX_ALIGNMENT, CONSERVATIVE
+  lengthPreference String           // ONE_PAGE, TWO_PAGES, AUTO
+  
+  resumeJson       String           // Stringified JSON of full resume
+  matchReportJson  String           // Stringified JSON of match analysis & report
+  
+  overallScore     Int
+  atsScore         Int
+  
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
