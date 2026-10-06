@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { fetchSavedResumes } from "../api/client";
+import { exportElementToPdf, generateFallbackPdfFromData } from "../utils/pdfExporter";
 import { Badge } from "../components/Badge";
-import { History, FileText, Download, FileCode, CheckCircle2, ShieldCheck } from "lucide-react";
+import { History, FileText, Download, FileCode, CheckCircle2, ShieldCheck, Printer } from "lucide-react";
 
 export const DashboardPage: React.FC = () => {
-  const { generatedResume, candidate, setCurrentStep } = useApp();
+  const { generatedResume, candidate, setCurrentStep, setError } = useApp();
   const [savedResumes, setSavedResumes] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
 
   useEffect(() => {
     fetchSavedResumes()
@@ -16,8 +18,30 @@ export const DashboardPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const exportAsPdf = () => {
-    window.print();
+  const handleDownloadPdf = async () => {
+    if (!candidate || !generatedResume) {
+      setError("No active generated resume found. Please generate a resume first.");
+      return;
+    }
+    const filename = `${candidate.fullName.replace(/\s+/g, "_")}_Resume.pdf`;
+    try {
+      setDownloadingPdf(true);
+      setError(null);
+      // Try HTML2Canvas DOM export if active element exists, otherwise fallback to jsPDF generator
+      if (document.getElementById("resume-document")) {
+        await exportElementToPdf("resume-document", filename);
+      } else {
+        generateFallbackPdfFromData(candidate, generatedResume, filename);
+      }
+    } catch (err: any) {
+      try {
+        generateFallbackPdfFromData(candidate, generatedResume, filename);
+      } catch (fallbackErr: any) {
+        setError("Failed to export PDF: " + fallbackErr.message);
+      }
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   const exportAsTxt = () => {
@@ -99,19 +123,29 @@ export const DashboardPage: React.FC = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button
-              onClick={exportAsPdf}
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="p-4 bg-gradient-to-br from-emerald-950/80 to-slate-900 hover:from-emerald-900/80 border border-emerald-700/60 rounded-xl text-center transition-all group"
+            >
+              <Download className="w-7 h-7 text-emerald-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+              <div className="text-sm font-bold text-white">{downloadingPdf ? "Generating..." : "Download PDF (.pdf)"}</div>
+              <p className="text-[10px] text-emerald-300/80 mt-1">Direct PDF Document</p>
+            </button>
+
+            <button
+              onClick={() => window.print()}
               className="p-4 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-center transition-all group"
             >
-              <FileText className="w-7 h-7 text-cyan-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-              <div className="text-sm font-bold text-white">Print / PDF</div>
-              <p className="text-[10px] text-slate-400 mt-1">ATS Printable PDF</p>
+              <Printer className="w-7 h-7 text-cyan-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+              <div className="text-sm font-bold text-white">Print / Browser PDF</div>
+              <p className="text-[10px] text-slate-400 mt-1">Browser Print Dialog</p>
             </button>
 
             <button
               onClick={exportAsTxt}
               className="p-4 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-center transition-all group"
             >
-              <FileText className="w-7 h-7 text-emerald-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+              <FileText className="w-7 h-7 text-cyan-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
               <div className="text-sm font-bold text-white">Plain Text (.txt)</div>
               <p className="text-[10px] text-slate-400 mt-1">Direct ATS Copy/Paste</p>
             </button>
@@ -123,15 +157,6 @@ export const DashboardPage: React.FC = () => {
               <FileCode className="w-7 h-7 text-amber-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
               <div className="text-sm font-bold text-white">Markdown (.md)</div>
               <p className="text-[10px] text-slate-400 mt-1">For Developers</p>
-            </button>
-
-            <button
-              onClick={() => setCurrentStep("RESUME_EDITOR")}
-              className="p-4 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-center transition-all group"
-            >
-              <CheckCircle2 className="w-7 h-7 text-sky-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-              <div className="text-sm font-bold text-white">Edit Resume</div>
-              <p className="text-[10px] text-slate-400 mt-1">Back to Editor</p>
             </button>
           </div>
         </div>
@@ -165,7 +190,7 @@ export const DashboardPage: React.FC = () => {
                   onClick={() => setCurrentStep("RESUME_EDITOR")}
                   className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 text-xs font-semibold hover:bg-slate-700 border border-slate-700"
                 >
-                  View
+                  View / Edit
                 </button>
               </div>
             ))}

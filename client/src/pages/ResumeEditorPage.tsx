@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { regenerateBullet } from "../api/client";
+import { exportElementToPdf, generateFallbackPdfFromData } from "../utils/pdfExporter";
 import { Badge } from "../components/Badge";
-import { Sparkles, ShieldCheck, CheckCircle2, ArrowRight } from "lucide-react";
+import { Sparkles, ShieldCheck, CheckCircle2, ArrowRight, Download, Printer } from "lucide-react";
 
 export const ResumeEditorPage: React.FC = () => {
-  const { candidate, activeJd, generatedResume, setGeneratedResume, matchAnalysis, setCurrentStep } = useApp();
+  const { candidate, activeJd, generatedResume, setGeneratedResume, matchAnalysis, setCurrentStep, setError } = useApp();
 
   const [selectedBulletIndex, setSelectedBulletIndex] = useState<{ expIdx: number; bIdx: number } | null>(null);
   const [rewriting, setRewriting] = useState<boolean>(false);
+  const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
 
   if (!generatedResume || !candidate) {
     return (
@@ -17,6 +19,24 @@ export const ResumeEditorPage: React.FC = () => {
       </div>
     );
   }
+
+  const handleDownloadPdf = async () => {
+    const filename = `${candidate.fullName.replace(/\s+/g, "_")}_Resume.pdf`;
+    try {
+      setDownloadingPdf(true);
+      setError(null);
+      await exportElementToPdf("resume-document", filename);
+    } catch (err: any) {
+      console.warn("Element PDF export fallback invoked:", err);
+      try {
+        generateFallbackPdfFromData(candidate, generatedResume, filename);
+      } catch (fallbackErr: any) {
+        setError("Failed to generate PDF: " + fallbackErr.message);
+      }
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const handleRewriteBullet = async (expIdx: number, bIdx: number, tone: "ats" | "technical" | "concise") => {
     try {
@@ -47,12 +67,30 @@ export const ResumeEditorPage: React.FC = () => {
             ATS Score: <strong className="text-cyan-400 font-bold">{matchAnalysis?.atsScore || 90}/100</strong>
           </span>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>{downloadingPdf ? "Generating PDF..." : "Download PDF (.pdf)"}</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print</span>
+          </button>
+
           <button
             onClick={() => setCurrentStep("ALIGNMENT_REPORT")}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-sky-600 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/20 hover:from-cyan-400 hover:to-sky-500"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-sky-600 hover:from-cyan-400 hover:to-sky-500 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/20"
           >
-            <span>View Alignment Report & Roadmap</span>
+            <span>View Alignment Report</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -61,7 +99,10 @@ export const ResumeEditorPage: React.FC = () => {
       {/* Split Screen Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT 7 COLS: Live ATS Printable Resume Document */}
-        <div className="lg:col-span-7 bg-white text-slate-900 rounded-2xl p-8 shadow-2xl resume-paper border border-slate-200 text-sm leading-relaxed space-y-6">
+        <div
+          id="resume-document"
+          className="lg:col-span-7 bg-white text-slate-900 rounded-2xl p-8 shadow-2xl resume-paper border border-slate-200 text-sm leading-relaxed space-y-6"
+        >
           {/* Header */}
           <div className="border-b border-slate-300 pb-4 text-center">
             <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">{candidate.fullName}</h1>
@@ -176,6 +217,24 @@ export const ResumeEditorPage: React.FC = () => {
 
         {/* RIGHT 5 COLS: AI Assistant & Bullet Regenerator Sidebar */}
         <div className="lg:col-span-5 space-y-6">
+          {/* Quick PDF Action Card */}
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Download className="w-4 h-4 text-emerald-400" /> Export Options
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Direct high-res ATS PDF document</p>
+            </div>
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{downloadingPdf ? "Generating..." : "Download PDF"}</span>
+            </button>
+          </div>
+
           {/* Bullet Regenerator Panel */}
           <div className="glass-panel p-5 rounded-2xl border border-slate-800">
             <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-2">
